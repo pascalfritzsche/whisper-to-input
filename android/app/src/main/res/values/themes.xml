@@ -6,19 +6,19 @@
     </style>
 
     <style name="RegularImage">
-        <item name="android:tint">@color/theme_rich_black</item>
+        <item name="android:tint">@color/theme_keyboard_fg</item>
     </style>
 
     <style name="RegularText">
-        <item name="android:textColor">@color/theme_rich_black</item>
+        <item name="android:textColor">@color/theme_keyboard_fg</item>
     </style>
 
     <style name="Background">
-        <item name="android:background">@color/theme_light_grey</item>
+        <item name="android:background">@color/theme_keyboard_bg</item>
     </style>
 
     <style name="TopBar">
-        <item name="android:background">@color/theme_rich_black</item>
+        <item name="android:background">@color/theme_keyboard_topbar</item>
     </style>
 
     <!-- Settings Page Styles -->
