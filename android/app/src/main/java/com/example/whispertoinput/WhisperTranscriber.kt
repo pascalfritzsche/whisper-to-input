@@ -33,6 +33,7 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
+import java.util.concurrent.TimeUnit
 import com.github.liuyueyi.quick.transfer.ChineseUtils
 
 class WhisperTranscriber {
@@ -76,8 +77,12 @@ class WhisperTranscriber {
                 throw Exception(context.getString(R.string.error_endpoint_unset))
             }
 
-            // Make request
-            val client = OkHttpClient()
+            // Make request - default OkHttp readTimeout is only 10s, too short for longer dictations.
+            val client = OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(90, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .build()
             val request = buildWhisperRequest(
                 context,
                 filename,
