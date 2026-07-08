@@ -80,7 +80,7 @@ class WhisperTranscriber {
             // Make request - default OkHttp readTimeout is only 10s, too short for longer dictations.
             val client = OkHttpClient.Builder()
                 .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(90, TimeUnit.SECONDS)
+                .readTimeout(360, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .build()
             val request = buildWhisperRequest(
