@@ -264,6 +264,10 @@ class WhisperKeyboard {
             KeyboardStatus.Transcribing -> {
                 return
             }
+
+            KeyboardStatus.Polishing -> {
+                return
+            }
         }
     }
 
