@@ -72,6 +72,36 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         setupSettingItems()
         checkPermissions()
+        checkForAppUpdate()
+    }
+
+    private fun checkForAppUpdate() {
+        CoroutineScope(Dispatchers.Main).launch {
+            val update = UpdateChecker.checkForUpdate(this@MainActivity) ?: return@launch
+
+            val banner: View = findViewById(R.id.update_banner)
+            val label: android.widget.TextView = findViewById(R.id.label_update_available)
+            val btnUpdate: Button = findViewById(R.id.btn_update_now)
+
+            label.text = getString(R.string.update_available, update.versionName)
+            banner.visibility = View.VISIBLE
+            btnUpdate.setOnClickListener {
+                btnUpdate.isEnabled = false
+                Toast.makeText(this@MainActivity, R.string.update_downloading, Toast.LENGTH_SHORT).show()
+                CoroutineScope(Dispatchers.Main).launch {
+                    try {
+                        UpdateChecker.downloadAndInstall(this@MainActivity, update.downloadUrl)
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            getString(R.string.update_download_failed, e.message),
+                            Toast.LENGTH_LONG
+                        ).show()
+                        btnUpdate.isEnabled = true
+                    }
+                }
+            }
+        }
     }
 
     // The onClick event of the grant permission button.
