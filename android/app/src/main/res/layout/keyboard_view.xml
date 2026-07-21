@@ -247,4 +247,17 @@
         app:layout_constraintEnd_toEndOf="@id/btn_backspace"
         app:layout_constraintTop_toTopOf="@id/label_status"
         app:layout_constraintBottom_toBottomOf="@id/label_status"/>
+
+    <ImageButton
+        style="@style/RegularImage"
+        android:id="@+id/btn_polish"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:backgroundTint="#00000000"
+        android:contentDescription="@string/btn_polish_hint"
+        android:scaleType="fitCenter"
+        android:padding="8dp"
+        android:src="@drawable/ic_polish"
+        app:layout_constraintStart_toStartOf="@id/btn_previous_ime"
+        app:layout_constraintTop_toBottomOf="@id/btn_previous_ime" />
 </androidx.constraintlayout.widget.ConstraintLayout>

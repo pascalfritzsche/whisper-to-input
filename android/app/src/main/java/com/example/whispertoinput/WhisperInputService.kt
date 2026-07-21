@@ -26,6 +26,7 @@ import android.content.Intent
 import android.os.IBinder
 import android.text.TextUtils
 import android.view.KeyEvent
+import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.datastore.preferences.core.Preferences
@@ -50,6 +51,7 @@ private const val IME_SWITCH_OPTION_AVAILABILITY_API_LEVEL = 28
 class WhisperInputService : InputMethodService() {
     private val whisperKeyboard: WhisperKeyboard = WhisperKeyboard()
     private val whisperTranscriber: WhisperTranscriber = WhisperTranscriber()
+    private val textPolisher: TextPolisher = TextPolisher()
     private var recorderManager: RecorderManager? = null
     private var recordedAudioFilename: String = ""
     private var audioMediaType: String = AUDIO_MEDIA_TYPE_M4A
@@ -134,6 +136,8 @@ class WhisperInputService : InputMethodService() {
             { onSwitchIme() },
             { onOpenSettings() },
             { shouldShowRetry() },
+            { onStartPolishing() },
+            { onCancelPolishing() },
         )
     }
 
@@ -211,6 +215,37 @@ class WhisperInputService : InputMethodService() {
         inputConnection.commitText(" ", 1)
     }
 
+    private fun onStartPolishing() {
+        val inputConnection = currentInputConnection
+        val text = inputConnection?.getExtractedText(ExtractedTextRequest(), 0)?.text?.toString() ?: ""
+        if (text.isEmpty()) {
+            whisperKeyboard.reset()
+            return
+        }
+        textPolisher.startAsync(this, text, { polishCallback(it) }, { polishExceptionCallback(it) })
+    }
+
+    private fun onCancelPolishing() {
+        textPolisher.stop()
+    }
+
+    private fun polishCallback(text: String?) {
+        if (!text.isNullOrEmpty()) {
+            val inputConnection = currentInputConnection
+            val extracted = inputConnection?.getExtractedText(ExtractedTextRequest(), 0)
+            if (inputConnection != null && extracted != null) {
+                inputConnection.setComposingRegion(0, extracted.text.length)
+                inputConnection.commitText(text, 1)
+            }
+        }
+        whisperKeyboard.reset()
+    }
+
+    private fun polishExceptionCallback(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        whisperKeyboard.reset()
+    }
+
     private fun shouldShowRetry(): Boolean {
         val exists = File(recordedAudioFilename).exists()
         return exists
@@ -226,6 +261,7 @@ class WhisperInputService : InputMethodService() {
     override fun onWindowShown() {
         super.onWindowShown()
         whisperTranscriber.stop()
+        textPolisher.stop()
         whisperKeyboard.reset()
         recorderManager!!.stop()
 
@@ -249,6 +285,7 @@ class WhisperInputService : InputMethodService() {
     override fun onWindowHidden() {
         super.onWindowHidden()
         whisperTranscriber.stop()
+        textPolisher.stop()
         whisperKeyboard.reset()
         recorderManager!!.stop()
     }
@@ -256,6 +293,7 @@ class WhisperInputService : InputMethodService() {
     override fun onDestroy() {
         super.onDestroy()
         whisperTranscriber.stop()
+        textPolisher.stop()
         whisperKeyboard.reset()
         recorderManager!!.stop()
     }

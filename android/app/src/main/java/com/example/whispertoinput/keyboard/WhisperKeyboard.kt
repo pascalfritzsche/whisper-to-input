@@ -46,6 +46,7 @@ class WhisperKeyboard {
         Idle,             // Ready to start recording
         Recording,       // Currently recording
         Transcribing,    // Waiting for transcription results
+        Polishing,       // Waiting for AI cleanup of existing text
     }
 
     // Keyboard event listeners. Assignable custom behaviors upon certain UI events (user-operated).
@@ -58,6 +59,8 @@ class WhisperKeyboard {
     private var onOpenSettings: () -> Unit = { }
     private var onEnter: () -> Unit = { }
     private var onSpaceBar: () -> Unit = { }
+    private var onStartPolishing: () -> Unit = { }
+    private var onCancelPolishing: () -> Unit = { }
     private var shouldShowRetry: () -> Boolean = { false }
 
     // Keyboard Status
@@ -75,6 +78,7 @@ class WhisperKeyboard {
     private var buttonBackspace: BackspaceButton? = null
     private var buttonPreviousIme: ImageButton? = null
     private var buttonSettings: ImageButton? = null
+    private var buttonPolish: ImageButton? = null
     private var micRippleContainer: ConstraintLayout? = null
     private var micRipples: Array<ImageView> = emptyArray()
 
@@ -91,6 +95,8 @@ class WhisperKeyboard {
         onSwitchIme: () -> Unit,
         onOpenSettings: () -> Unit,
         shouldShowRetry: () -> Boolean,
+        onStartPolishing: () -> Unit,
+        onCancelPolishing: () -> Unit,
     ): View {
         // Inflate the keyboard layout & assign views
         keyboardView = layoutInflater.inflate(R.layout.keyboard_view, null) as ConstraintLayout
@@ -104,6 +110,7 @@ class WhisperKeyboard {
         buttonBackspace = keyboardView!!.findViewById(R.id.btn_backspace) as BackspaceButton
         buttonPreviousIme = keyboardView!!.findViewById(R.id.btn_previous_ime) as ImageButton
         buttonSettings = keyboardView!!.findViewById(R.id.btn_settings) as ImageButton
+        buttonPolish = keyboardView!!.findViewById(R.id.btn_polish) as ImageButton
         micRippleContainer = keyboardView!!.findViewById(R.id.mic_ripples) as ConstraintLayout
         micRipples = arrayOf(
             keyboardView!!.findViewById(R.id.mic_ripple_0) as ImageView,
@@ -123,6 +130,7 @@ class WhisperKeyboard {
         buttonCancel!!.setOnClickListener { onButtonCancelClick() }
         buttonRetry!!.setOnClickListener { onButtonRetryClick() }
         buttonSettings!!.setOnClickListener { onButtonSettingsClick() }
+        buttonPolish!!.setOnClickListener { onButtonPolishClick() }
         buttonBackspace!!.setBackspaceCallback { onButtonBackspaceClick() }
         buttonSpaceBar!!.setOnClickListener { onButtonSpaceBarClick() }
 
@@ -140,6 +148,8 @@ class WhisperKeyboard {
         this.onOpenSettings = onOpenSettings
         this.onEnter = onEnter
         this.onSpaceBar = onSpaceBar
+        this.onStartPolishing = onStartPolishing
+        this.onCancelPolishing = onCancelPolishing
         this.shouldShowRetry = shouldShowRetry
 
         // Resets keyboard upon setup
@@ -227,6 +237,14 @@ class WhisperKeyboard {
         this.onOpenSettings()
     }
 
+    private fun onButtonPolishClick() {
+        // Only usable when idle - avoids clashing with an in-flight recording/transcription.
+        if (keyboardStatus == KeyboardStatus.Idle) {
+            setKeyboardStatus(KeyboardStatus.Polishing)
+            onStartPolishing()
+        }
+    }
+
     private fun onButtonMicClick() {
         // Upon button mic click...
         // Idle -> Start Recording
@@ -272,6 +290,9 @@ class WhisperKeyboard {
         } else if (keyboardStatus == KeyboardStatus.Transcribing) {
             setKeyboardStatus(KeyboardStatus.Idle)
             onCancelTranscribing()
+        } else if (keyboardStatus == KeyboardStatus.Polishing) {
+            setKeyboardStatus(KeyboardStatus.Idle)
+            onCancelPolishing()
         }
     }
 
@@ -310,6 +331,15 @@ class WhisperKeyboard {
             KeyboardStatus.Transcribing -> {
                 labelStatus!!.setText(R.string.transcribing)
                 buttonMic!!.setImageResource(R.drawable.mic_transcribing)
+                waitingIcon!!.visibility = View.VISIBLE
+                buttonCancel!!.visibility = View.VISIBLE
+                buttonRetry!!.visibility = View.INVISIBLE
+                micRippleContainer!!.visibility = View.GONE
+                keyboardView!!.keepScreenOn = true
+            }
+
+            KeyboardStatus.Polishing -> {
+                labelStatus!!.setText(R.string.polishing)
                 waitingIcon!!.visibility = View.VISIBLE
                 buttonCancel!!.visibility = View.VISIBLE
                 buttonRetry!!.visibility = View.INVISIBLE
