@@ -40,7 +40,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 private const val RECORDED_AUDIO_FILENAME_M4A = "recorded.m4a"
 private const val RECORDED_AUDIO_FILENAME_OGG = "recorded.ogg"
@@ -150,7 +154,33 @@ class WhisperInputService : InputMethodService() {
             return
         }
 
+        fireWarmupRequest()
         recorderManager!!.start(this, recordedAudioFilename, useOggFormat)
+    }
+
+    // Fire-and-forget cleanup-model warmup on our own backend; errors are swallowed by design.
+    private fun fireWarmupRequest() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val endpoint = dataStore.data.map { preferences: Preferences ->
+                    preferences[ENDPOINT] ?: ""
+                }.first().substringBefore("?")
+                if (!endpoint.contains("/mulmai/asr/")) return@launch
+
+                val warmupUrl = endpoint.replace("/mulmai/asr/", "/mulmai/warmup/")
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(3, TimeUnit.SECONDS)
+                    .readTimeout(3, TimeUnit.SECONDS)
+                    .build()
+                val request = Request.Builder()
+                    .url(warmupUrl)
+                    .post("".toRequestBody(null))
+                    .build()
+                client.newCall(request).execute().close()
+            } catch (_: Exception) {
+                // Best effort - a failed warmup must not affect dictation.
+            }
+        }
     }
 
     // when mic amplitude is updated, notify the keyboard
