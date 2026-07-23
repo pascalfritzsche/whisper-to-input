@@ -3,11 +3,11 @@
     <color name="dark_gray">#FF777777</color>
     <color name="theme_light_grey">#d9d9d9</color>
     <color name="theme_rich_black">#FF001A23</color>
-    <!-- Anlehnung an --bg-0 der Website (client/Apps/Main/colors.min.css) statt reinem Schwarz -->
+    <!-- Anlehnung an bg-0 der Website (client/Apps/Main/colors.min.css) statt reinem Schwarz -->
     <color name="theme_keyboard_bg">#FF0F0F24</color>
     <color name="theme_keyboard_fg">#FFE8E8E8</color>
     <color name="theme_keyboard_topbar">#FF1A1A33</color>
-    <!-- Website-Akzentfarben (--color-accent-primary / -soft / -contrast) -->
+    <!-- Website-Akzentfarben (color-accent-primary / -soft / -contrast) -->
     <color name="theme_accent_primary">#FF894FF3</color>
     <color name="theme_accent_primary_soft">#FFB48CFF</color>
     <color name="theme_accent_primary_contrast">#FF0B1020</color>
