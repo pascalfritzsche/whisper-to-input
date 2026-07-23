@@ -32,8 +32,6 @@ import android.widget.Toast
 import androidx.datastore.preferences.core.Preferences
 import com.example.whispertoinput.keyboard.WhisperKeyboard
 import com.example.whispertoinput.recorder.RecorderManager
-import com.github.liuyueyi.quick.transfer.ChineseUtils
-import com.github.liuyueyi.quick.transfer.constants.TransType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -57,6 +55,7 @@ class WhisperInputService : InputMethodService() {
     private var audioMediaType: String = AUDIO_MEDIA_TYPE_M4A
     private var useOggFormat: Boolean = false
     private var isFirstTime: Boolean = true
+    private var pendingUpdate: UpdateInfo? = null
 
     private fun transcriptionCallback(text: String?) {
         if (!text.isNullOrEmpty()) {
@@ -98,14 +97,12 @@ class WhisperInputService : InputMethodService() {
         // Initialize members with regard to this context
         recorderManager = RecorderManager(this)
 
-        // Preload conversion table
-        ChineseUtils.preLoad(true, TransType.SIMPLE_TO_TAIWAN)
-        ChineseUtils.preLoad(true, TransType.TAIWAN_TO_SIMPLE)
-
         // Initialize audio format based on backend setting
         CoroutineScope(Dispatchers.Main).launch {
             updateAudioFormat()
         }
+
+        checkForKeyboardUpdate()
 
         // Should offer ime switch?
         val shouldOfferImeSwitch: Boolean =
@@ -138,7 +135,34 @@ class WhisperInputService : InputMethodService() {
             { shouldShowRetry() },
             { onStartPolishing() },
             { onCancelPolishing() },
+            { onUpdateAvailableClick() },
         )
+    }
+
+    private fun checkForKeyboardUpdate() {
+        CoroutineScope(Dispatchers.Main).launch {
+            val update = UpdateChecker.checkForUpdate(this@WhisperInputService)
+            whisperKeyboard.showUpdateAvailable(update != null)
+            pendingUpdate = update
+        }
+    }
+
+    private fun onUpdateAvailableClick() {
+        val update = pendingUpdate ?: return
+        whisperKeyboard.setUpdateAvailableEnabled(false)
+        Toast.makeText(this, R.string.update_downloading, Toast.LENGTH_SHORT).show()
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                UpdateChecker.downloadAndInstall(this@WhisperInputService, update.downloadUrl)
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this@WhisperInputService,
+                    getString(R.string.update_download_failed, e.message),
+                    Toast.LENGTH_LONG
+                ).show()
+                whisperKeyboard.setUpdateAvailableEnabled(true)
+            }
+        }
     }
 
     private fun onStartRecording() {

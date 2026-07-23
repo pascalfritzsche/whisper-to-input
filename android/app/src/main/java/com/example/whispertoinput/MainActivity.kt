@@ -28,9 +28,11 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.*
+import android.util.Log
 import android.view.View
 import android.widget.AdapterView
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.Spinner
 import android.widget.Toast
@@ -42,6 +44,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -49,16 +52,27 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.concurrent.TimeUnit
 
 // 200 and 201 are an arbitrary values, as long as they do not conflict with each other
 private const val MICROPHONE_PERMISSION_REQUEST_CODE = 200
 private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 201
+// Rein informativ im Settings-Screen - App hat keine Modellwahl mehr, muss manuell
+// nachgezogen werden falls sich GENERATE_MODEL in api/MulmAI/asr.mjs aendert.
+private const val CURRENT_SERVER_MODEL = "gemma4:e4b-mlx"
+private val cleanupModeSyncClient = OkHttpClient.Builder()
+    .connectTimeout(10, TimeUnit.SECONDS)
+    .readTimeout(15, TimeUnit.SECONDS)
+    .writeTimeout(10, TimeUnit.SECONDS)
+    .build()
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 val SPEECH_TO_TEXT_BACKEND = stringPreferencesKey("speech-to-text-backend")
 val ENDPOINT = stringPreferencesKey("endpoint")
-val LANGUAGE_CODE = stringPreferencesKey("language-code")
-val API_KEY = stringPreferencesKey("api-key")
-val MODEL = stringPreferencesKey("model")
 val AUTO_RECORDING_START = booleanPreferencesKey("is-auto-recording-start")
 val AUTO_SWITCH_BACK = booleanPreferencesKey("auto-switch-back")
 val ADD_TRAILING_SPACE = booleanPreferencesKey("add-trailing-space")
@@ -70,9 +84,112 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        setupSettingItems()
         checkPermissions()
+        checkAuthState()
+    }
+
+    private fun checkAuthState() {
+        CoroutineScope(Dispatchers.Main).launch {
+            val session = dataStore.data.map { it[SESSION_TOKEN] }.first()
+            if (session.isNullOrEmpty()) {
+                showLoginScreen()
+            } else {
+                loadSettingsForSession(session)
+            }
+        }
+    }
+
+    private fun showLoginScreen() {
+        findViewById<View>(R.id.settings_top_bar).visibility = View.GONE
+        findViewById<View>(R.id.update_banner).visibility = View.GONE
+        findViewById<View>(R.id.token_fetch_error_banner).visibility = View.GONE
+        findViewById<View>(R.id.settings_scroll).visibility = View.GONE
+        findViewById<View>(R.id.login_container).visibility = View.VISIBLE
+        setupLoginScreen()
+    }
+
+    private fun showSettingsScreen() {
+        findViewById<View>(R.id.login_container).visibility = View.GONE
+        findViewById<View>(R.id.settings_top_bar).visibility = View.VISIBLE
+        findViewById<View>(R.id.settings_scroll).visibility = View.VISIBLE
+        setupSettingItems()
+        setupLogoutButton()
         checkForAppUpdate()
+    }
+
+    private suspend fun loadSettingsForSession(session: String) {
+        when (val result = SessionManager.fetchSettings(session)) {
+            is SettingsFetchResult.Success -> {
+                dataStore.edit {
+                    it[ENDPOINT] = result.settings.url
+                    // Server ist die Quelle der Wahrheit fuer den Cleanup-Modus - lokale
+                    // Preference bei jedem Sync ueberschreiben, nicht nur beim ersten Login.
+                    it[POSTPROCESSING] = result.settings.cleanupMode
+                }
+                showSettingsScreen()
+            }
+            is SettingsFetchResult.Unauthorized -> {
+                dataStore.edit { it.remove(SESSION_TOKEN) }
+                showLoginScreen()
+            }
+            is SettingsFetchResult.Error -> {
+                // Session war laut Server nicht abgelehnt (kein 401) - Settings trotzdem
+                // zeigen (mit evtl. altem Endpoint) + Retry-Banner statt komplett zu blockieren.
+                showSettingsScreen()
+                val banner = findViewById<View>(R.id.token_fetch_error_banner)
+                banner.visibility = View.VISIBLE
+                findViewById<Button>(R.id.btn_token_fetch_retry).setOnClickListener {
+                    banner.visibility = View.GONE
+                    CoroutineScope(Dispatchers.Main).launch { loadSettingsForSession(session) }
+                }
+            }
+        }
+    }
+
+    private fun setupLoginScreen() {
+        val btnLogin: Button = findViewById(R.id.btn_login)
+        val fieldUsername: EditText = findViewById(R.id.field_login_username)
+        val fieldPassword: EditText = findViewById(R.id.field_login_password)
+        val checkboxStay: CheckBox = findViewById(R.id.checkbox_stay_logged_in)
+
+        btnLogin.setOnClickListener {
+            val username = fieldUsername.text.toString()
+            val password = fieldPassword.text.toString()
+            if (username.isEmpty() || password.isEmpty()) return@setOnClickListener
+            findViewById<View>(R.id.label_login_error).visibility = View.GONE
+            btnLogin.isEnabled = false
+            CoroutineScope(Dispatchers.Main).launch {
+                val result = SessionManager.login(username, password, checkboxStay.isChecked)
+                btnLogin.isEnabled = true
+                when (result) {
+                    is LoginResult.Success -> {
+                        dataStore.edit { it[SESSION_TOKEN] = result.session }
+                        loadSettingsForSession(result.session)
+                    }
+                    is LoginResult.InvalidCredentials -> showLoginError(getString(R.string.error_login_invalid))
+                    is LoginResult.Locked -> showLoginError(getString(R.string.error_login_locked))
+                    is LoginResult.Pending -> showLoginError(getString(R.string.error_login_pending))
+                    is LoginResult.RateLimited -> showLoginError(getString(R.string.error_login_rate_limited))
+                    is LoginResult.Rejected -> showLoginError(result.reason.ifBlank { getString(R.string.error_login_rejected) })
+                    is LoginResult.NetworkError -> showLoginError(getString(R.string.error_login_network))
+                }
+            }
+        }
+    }
+
+    private fun showLoginError(message: String) {
+        val labelError: android.widget.TextView = findViewById(R.id.label_login_error)
+        labelError.text = message
+        labelError.visibility = View.VISIBLE
+    }
+
+    private fun setupLogoutButton() {
+        findViewById<View>(R.id.btn_logout).setOnClickListener {
+            CoroutineScope(Dispatchers.Main).launch {
+                dataStore.edit { it.remove(SESSION_TOKEN) }
+                showLoginScreen()
+            }
+        }
     }
 
     private fun checkForAppUpdate() {
@@ -269,11 +386,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    inner class SettingStringDropdown(
+    // Cleanup-Modus lebt server-seitig am Diktier-Token (wie cleanupEnabled bisher), nicht nur
+    // lokal - die Auswahl wird beim Anwenden zusaetzlich an den Server gemeldet.
+    inner class SettingCleanupMode(
         private val viewId: Int,
         private val preferenceKey: Preferences.Key<String>,
-        private val optionValues: List<String>,
-        private val defaultValue: String = ""
+        private val displayToMode: HashMap<String, String>,
+        private val defaultValue: String
     ): SettingItem() {
         override fun setup(): Job {
             return CoroutineScope(Dispatchers.Main).launch {
@@ -285,50 +404,19 @@ class MainActivity : AppCompatActivity() {
                         if (!setupSettingItemsDone) return
                         isDirty = true
                         btnApply.isEnabled = true
-                        // Deal with individual spinner
-                        if (parent.id == R.id.spinner_speech_to_text_backend) {
-                            val selectedItem = parent.getItemAtPosition(pos)
-                            if (selectedItem == getString(R.string.settings_option_openai_api)) {
-                                val endpointEditText: EditText = findViewById<EditText>(R.id.field_endpoint)
-                                endpointEditText.setText(getString(R.string.settings_option_openai_api_default_endpoint))
-                                val modelEditText: EditText = findViewById<EditText>(R.id.field_model)
-                                modelEditText.setText(getString(R.string.settings_option_openai_api_default_model))
-                            } else if (selectedItem == getString(R.string.settings_option_whisper_asr_webservice)) {
-                                val endpointEditText: EditText = findViewById<EditText>(R.id.field_endpoint)
-                                if (endpointEditText.text.isEmpty() ||
-                                    endpointEditText.text.toString() == getString(R.string.settings_option_openai_api_default_endpoint) ||
-                                    endpointEditText.text.toString() == getString(R.string.settings_option_nvidia_nim_default_endpoint)
-                                ) {
-                                    endpointEditText.setText(getString(R.string.settings_option_whisper_asr_webservice_default_endpoint))
-                                }
-                                val modelEditText: EditText = findViewById<EditText>(R.id.field_model)
-                                modelEditText.setText(getString(R.string.settings_option_whisper_asr_webservice_default_model))
-                            } else if (selectedItem == getString(R.string.settings_option_nvidia_nim)) {
-                                val endpointEditText: EditText = findViewById<EditText>(R.id.field_endpoint)
-                                if (endpointEditText.text.isEmpty() ||
-                                    endpointEditText.text.toString() == getString(R.string.settings_option_openai_api_default_endpoint) ||
-                                    endpointEditText.text.toString() == getString(R.string.settings_option_whisper_asr_webservice_default_endpoint)
-                                ) {
-                                    endpointEditText.setText(getString(R.string.settings_option_nvidia_nim_default_endpoint))
-                                }
-                                val modelEditText: EditText = findViewById<EditText>(R.id.field_model)
-                                modelEditText.setText(getString(R.string.settings_option_nvidia_nim_default_model))
-                                val languageCodeEditText: EditText = findViewById<EditText>(R.id.field_language_code)
-                                languageCodeEditText.setText(getString(R.string.settings_option_nvidia_nim_default_language))
-                            }
-                        }
                     }
                     override fun onNothingSelected(parent: AdapterView<*>) { }
                 }
 
-                // Read data. If none, apply default value.
+                val modeToDisplay = displayToMode.map { (k, v) -> v to k }.toMap()
                 val settingValue: String? = readSetting(preferenceKey)
                 val value: String = settingValue ?: defaultValue
                 if (settingValue == null) {
                     writeSetting(preferenceKey, defaultValue)
                 }
+                val display = modeToDisplay[value] ?: modeToDisplay[defaultValue]!!
                 val index: Int? = (0 until spinner.adapter.count).firstOrNull {
-                    spinner.adapter.getItem(it) == value
+                    spinner.adapter.getItem(it) == display
                 }
                 spinner.setSelection(index ?: 0, false)
                 spinner.isEnabled = true
@@ -336,27 +424,45 @@ class MainActivity : AppCompatActivity() {
         }
         override suspend fun apply() {
             if (!isDirty) return
-            val selectedItem = findViewById<Spinner>(viewId).selectedItem
-            val newValue: String = selectedItem.toString()
-            writeSetting(preferenceKey, newValue)
+            val selectedItem = findViewById<Spinner>(viewId).selectedItem.toString()
+            val mode = displayToMode[selectedItem] ?: return
+            writeSetting(preferenceKey, mode)
             isDirty = false
+            syncCleanupModeToServer(mode)
+        }
+    }
+
+    // Bester Versuch - schlaegt der Sync fehl, behaelt der Server den vorherigen Modus,
+    // naechste erfolgreiche Aenderung gleicht ab. Kein Absturz oder Blockieren der lokalen Speicherung.
+    private suspend fun syncCleanupModeToServer(mode: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                val endpoint = dataStore.data.map { it[ENDPOINT] }.first() ?: return@withContext
+                if (endpoint.isEmpty()) return@withContext
+                val url = endpoint.substringBefore("?") + "/cleanup-mode"
+                val body = "{\"mode\":\"$mode\"}".toRequestBody("application/json; charset=utf-8".toMediaType())
+                val request = Request.Builder().url(url).post(body).build()
+                cleanupModeSyncClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        Log.w("MainActivity", "Cleanup-Modus-Sync: Server antwortete mit HTTP ${response.code}")
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("MainActivity", "Cleanup-Modus-Sync fehlgeschlagen: ${e.message}")
+            }
         }
     }
 
     private fun setupSettingItems() {
         setupSettingItemsDone = false
+        // Model-Feld ist reine Anzeige - App hat keine Modellwahl mehr, das Cleanup-Modell
+        // wird server-seitig festgelegt (GENERATE_MODEL in api/MulmAI/asr.mjs).
+        findViewById<EditText>(R.id.field_model).setText(CURRENT_SERVER_MODEL)
         // Add setting items here to apply functions to them
         CoroutineScope(Dispatchers.Main).launch {
             val settingItems = arrayOf(
-                SettingStringDropdown(R.id.spinner_speech_to_text_backend, SPEECH_TO_TEXT_BACKEND, listOf(
-                    getString(R.string.settings_option_openai_api),
-                    getString(R.string.settings_option_whisper_asr_webservice),
-                    getString(R.string.settings_option_nvidia_nim)
-                ), getString(R.string.settings_option_openai_api)),
-                SettingText(R.id.field_endpoint, ENDPOINT, getString(R.string.settings_option_openai_api_default_endpoint)),
-                SettingText(R.id.field_language_code, LANGUAGE_CODE, getString(R.string.settings_option_openai_api_default_language)),
-                SettingText(R.id.field_api_key, API_KEY),
-                SettingText(R.id.field_model, MODEL, getString(R.string.settings_option_openai_api_default_model)),
                 SettingDropdown(R.id.spinner_auto_recording_start, AUTO_RECORDING_START, hashMapOf(
                     getString(R.string.settings_option_yes) to true,
                     getString(R.string.settings_option_no) to false,
@@ -369,11 +475,11 @@ class MainActivity : AppCompatActivity() {
                     getString(R.string.settings_option_yes) to true,
                     getString(R.string.settings_option_no) to false,
                 ), false),
-                SettingStringDropdown(R.id.spinner_postprocessing, POSTPROCESSING, listOf(
-                    getString(R.string.settings_option_to_traditional),
-                    getString(R.string.settings_option_to_simplified),
-                    getString(R.string.settings_option_no_conversion)
-                ), getString(R.string.settings_option_to_traditional)),
+                SettingCleanupMode(R.id.spinner_postprocessing, POSTPROCESSING, hashMapOf(
+                    getString(R.string.settings_option_cleanup_off) to "off",
+                    getString(R.string.settings_option_cleanup_light) to "light",
+                    getString(R.string.settings_option_cleanup_heavy) to "heavy",
+                ), "light"),
             )
             val btnApply: Button = findViewById(R.id.btn_settings_apply)
             btnApply.isEnabled = false

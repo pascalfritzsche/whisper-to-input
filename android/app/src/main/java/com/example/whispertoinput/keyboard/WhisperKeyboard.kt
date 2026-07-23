@@ -29,6 +29,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.content.ContextCompat
 import androidx.core.math.MathUtils
 import com.example.whispertoinput.R
 import kotlin.math.log10
@@ -79,6 +80,7 @@ class WhisperKeyboard {
     private var buttonPreviousIme: ImageButton? = null
     private var buttonSettings: ImageButton? = null
     private var buttonPolish: ImageButton? = null
+    private var buttonUpdateAvailable: ImageButton? = null
     private var micRippleContainer: ConstraintLayout? = null
     private var micRipples: Array<ImageView> = emptyArray()
 
@@ -97,6 +99,7 @@ class WhisperKeyboard {
         shouldShowRetry: () -> Boolean,
         onStartPolishing: () -> Unit,
         onCancelPolishing: () -> Unit,
+        onUpdateAvailableClick: () -> Unit,
     ): View {
         // Inflate the keyboard layout & assign views
         keyboardView = layoutInflater.inflate(R.layout.keyboard_view, null) as ConstraintLayout
@@ -111,6 +114,7 @@ class WhisperKeyboard {
         buttonPreviousIme = keyboardView!!.findViewById(R.id.btn_previous_ime) as ImageButton
         buttonSettings = keyboardView!!.findViewById(R.id.btn_settings) as ImageButton
         buttonPolish = keyboardView!!.findViewById(R.id.btn_polish) as ImageButton
+        buttonUpdateAvailable = keyboardView!!.findViewById(R.id.btn_update_available) as ImageButton
         micRippleContainer = keyboardView!!.findViewById(R.id.mic_ripples) as ConstraintLayout
         micRipples = arrayOf(
             keyboardView!!.findViewById(R.id.mic_ripple_0) as ImageView,
@@ -131,6 +135,7 @@ class WhisperKeyboard {
         buttonRetry!!.setOnClickListener { onButtonRetryClick() }
         buttonSettings!!.setOnClickListener { onButtonSettingsClick() }
         buttonPolish!!.setOnClickListener { onButtonPolishClick() }
+        buttonUpdateAvailable!!.setOnClickListener { onUpdateAvailableClick() }
         buttonBackspace!!.setBackspaceCallback { onButtonBackspaceClick() }
         buttonSpaceBar!!.setOnClickListener { onButtonSpaceBarClick() }
 
@@ -161,6 +166,14 @@ class WhisperKeyboard {
 
     fun reset() {
         setKeyboardStatus(KeyboardStatus.Idle)
+    }
+
+    fun showUpdateAvailable(show: Boolean) {
+        buttonUpdateAvailable?.visibility = if (show) View.VISIBLE else View.GONE
+    }
+
+    fun setUpdateAvailableEnabled(enabled: Boolean) {
+        buttonUpdateAvailable?.isEnabled = enabled
     }
 
     fun updateMicrophoneAmplitude(amplitude: Int) {
@@ -315,6 +328,7 @@ class WhisperKeyboard {
             KeyboardStatus.Idle -> {
                 labelStatus!!.setText(R.string.whisper_to_input)
                 buttonMic!!.setImageResource(R.drawable.mic_idle)
+                buttonMic!!.clearColorFilter()
                 waitingIcon!!.visibility = View.INVISIBLE
                 buttonCancel!!.visibility = View.INVISIBLE
                 buttonRetry!!.visibility = if (shouldShowRetry()) View.VISIBLE else View.INVISIBLE
@@ -325,6 +339,7 @@ class WhisperKeyboard {
             KeyboardStatus.Recording -> {
                 labelStatus!!.setText(R.string.recording)
                 buttonMic!!.setImageResource(R.drawable.mic_pressed)
+                buttonMic!!.setColorFilter(ContextCompat.getColor(buttonMic!!.context, R.color.theme_accent_primary))
                 waitingIcon!!.visibility = View.INVISIBLE
                 buttonCancel!!.visibility = View.VISIBLE
                 buttonRetry!!.visibility = View.INVISIBLE
@@ -335,6 +350,7 @@ class WhisperKeyboard {
             KeyboardStatus.Transcribing -> {
                 labelStatus!!.setText(R.string.transcribing)
                 buttonMic!!.setImageResource(R.drawable.mic_transcribing)
+                buttonMic!!.setColorFilter(ContextCompat.getColor(buttonMic!!.context, R.color.theme_accent_primary))
                 waitingIcon!!.visibility = View.VISIBLE
                 buttonCancel!!.visibility = View.VISIBLE
                 buttonRetry!!.visibility = View.INVISIBLE

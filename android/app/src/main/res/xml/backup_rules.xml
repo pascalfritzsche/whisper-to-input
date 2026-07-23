@@ -6,8 +6,7 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Session-/Diktat-Token liegen hier (DataStore Preferences) - fuer Geraete
+    unter API 31, wo data_extraction_rules.xml ignoriert wird. -->
+    <exclude domain="file" path="datastore/"/>
 </full-backup-content>

@@ -4,16 +4,12 @@
    for details.
 -->
 <data-extraction-rules>
+    <!-- Session-Token (60 Tage) + niemals ablaufender Diktat-Token liegen hier
+    (DataStore Preferences) - nicht in Cloud-Backup/Geraetetransfer aufnehmen. -->
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="file" path="datastore/"/>
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="file" path="datastore/"/>
     </device-transfer>
-    -->
 </data-extraction-rules>

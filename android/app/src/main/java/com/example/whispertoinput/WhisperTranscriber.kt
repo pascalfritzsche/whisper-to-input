@@ -25,7 +25,6 @@ import androidx.datastore.preferences.core.Preferences
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import okhttp3.Headers
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -34,16 +33,10 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 import java.util.concurrent.TimeUnit
-import com.github.liuyueyi.quick.transfer.ChineseUtils
 
 class WhisperTranscriber {
     private data class Config(
         val endpoint: String,
-        val languageCode: String,
-        val speechToTextBackend: String,
-        val apiKey: String,
-        val model: String,
-        val postprocessing: String,
         val addTrailingSpace: Boolean
     )
 
@@ -60,14 +53,9 @@ class WhisperTranscriber {
     ) {
         suspend fun makeWhisperRequest(): String {
             // Retrieve configs
-            val (endpoint, languageCode, speechToTextBackend, apiKey, model, postprocessing, addTrailingSpace) = context.dataStore.data.map { preferences: Preferences ->
+            val (endpoint, addTrailingSpace) = context.dataStore.data.map { preferences: Preferences ->
                 Config(
                     preferences[ENDPOINT] ?: "",
-                    preferences[LANGUAGE_CODE] ?: "",
-                    preferences[SPEECH_TO_TEXT_BACKEND] ?: context.getString(R.string.settings_option_openai_api),
-                    preferences[API_KEY] ?: "",
-                    preferences[MODEL] ?: "",
-                    preferences[POSTPROCESSING] ?: context.getString(R.string.settings_option_no_conversion),
                     preferences[ADD_TRAILING_SPACE] ?: false
                 )
             }.first()
@@ -83,16 +71,7 @@ class WhisperTranscriber {
                 .readTimeout(360, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .build()
-            val request = buildWhisperRequest(
-                context,
-                filename,
-                mediaType,
-                speechToTextBackend,
-                endpoint,
-                languageCode,
-                apiKey,
-                model
-            )
+            val request = buildWhisperRequest(filename, mediaType, endpoint)
             val response = client.newCall(request).execute()
 
             // If request is not successful, or response code is weird
@@ -100,26 +79,13 @@ class WhisperTranscriber {
                 throw Exception(response.body!!.string().replace('\n', ' '))
             }
 
-            var rawText = response.body!!.string().trim()
-            
-            // For NVIDIA NIM, remove quotes if they wrap the text
-            // Not sure if this is a bug or a feature...
-            if (speechToTextBackend == context.getString(R.string.settings_option_nvidia_nim) && 
-                rawText.startsWith("\"") && rawText.endsWith("\"")) {
-                rawText = rawText.substring(1, rawText.length - 1).trim()
-            }
-            
-            val processedText = when (postprocessing) {
-                context.getString(R.string.settings_option_to_simplified) -> ChineseUtils.tw2s(rawText)
-                context.getString(R.string.settings_option_to_traditional) -> ChineseUtils.s2tw(rawText)
-                else -> rawText // No conversion
-            }
+            val rawText = response.body!!.string().trim()
 
             if (attachToEnd == "") {
-                return processedText + if (addTrailingSpace) " " else ""
+                return rawText + if (addTrailingSpace) " " else ""
             } else {
                 // Only used for space key and enter key.
-                return processedText + attachToEnd
+                return rawText + attachToEnd
             }
         }
 
@@ -167,87 +133,19 @@ class WhisperTranscriber {
         currentTranscriptionJob = job
     }
 
-    private fun buildWhisperRequest(
-        context: Context,
-        filename: String,
-        mediaType: String,
-        speechToTextBackend: String,
-        endpoint: String,
-        languageCode: String,
-        apiKey: String,
-        model: String
-    ): Request {
-        // Please refer to the following for the endpoint/payload definitions:
-        // OpenAI API:
-        // - https://platform.openai.com/docs/api-reference/audio/createTranscription
-        // - https://platform.openai.com/docs/api-reference/making-requests
-        // Whisper ASR WebService:
-        // - https://ahmetoner.com/whisper-asr-webservice/run/#usage
-        // NVIDIA NIM:
-        // - No public documentation for HTTP-style requests.
-        // - Source code at `/opt/nim/inference.py` in docker container `nvcr.io/nim/nvidia/riva-asr:1.3.0`.
-        /*
-            ...
-            @HttpNIMApiInterface.route('/v1/audio/transcriptions', methods=["post"])
-            async def transcriptions(
-                self,
-                file: UploadFile = File(...),
-                model: Optional[str] = Form(None),
-                language: Optional[str] = Form(None),
-                prompt: Optional[str] = Form(None),
-                response_format: Optional[str] = Form(None),
-                temperature: Optional[float] = Form(None),
-            ):
-            ...
-         */
+    // Nur noch das eigene Interface-Backend (api/MulmAI/asr.mjs) - der Feldname
+    // ist dort beliebig, kein API-Key/Sprachcode/Modell-Parameter noetig.
+    private fun buildWhisperRequest(filename: String, mediaType: String, endpoint: String): Request {
         val file: File = File(filename)
         val fileBody: RequestBody = file.asRequestBody(mediaType.toMediaTypeOrNull())
+        val formDataFilename = if (mediaType == "audio/ogg") "audio.ogg" else "audio.m4a"
         val requestBody: RequestBody = MultipartBody.Builder().apply {
             setType(MultipartBody.FORM)
-            // Determine filename based on media type
-            val formDataFilename = if (mediaType == "audio/ogg") "@audio.ogg" else "@audio.m4a"
-            
-            // Add file to payload
-            if (speechToTextBackend == context.getString(R.string.settings_option_openai_api) || 
-                speechToTextBackend == context.getString(R.string.settings_option_nvidia_nim)) {
-                addFormDataPart("file", formDataFilename, fileBody)
-            } else if (speechToTextBackend == context.getString(R.string.settings_option_whisper_asr_webservice)) {
-                addFormDataPart("audio_file", formDataFilename, fileBody)
-            }
-            // Add backend-specific parameters to payload
-            if (speechToTextBackend == context.getString(R.string.settings_option_openai_api)) {
-                addFormDataPart("model", model)
-                addFormDataPart("response_format", "text")
-            }
-            if (speechToTextBackend == context.getString(R.string.settings_option_nvidia_nim)) {
-                addFormDataPart("language", languageCode)
-                addFormDataPart("response_format", "text")
-            }
+            addFormDataPart("file", formDataFilename, fileBody)
         }.build()
-
-        val requestHeaders: Headers = Headers.Builder().apply {
-            if (speechToTextBackend == context.getString(R.string.settings_option_openai_api)) {
-                // Foolproof message
-                if (apiKey == "") {
-                    throw Exception(context.getString(R.string.error_apikey_unset))
-                }
-                add("Authorization", "Bearer $apiKey")
-            }
-            add("Content-Type", "multipart/form-data")
-        }.build()
-
-        // Build URL with endpoint-specific parameters
-        val url = when (speechToTextBackend) {
-            context.getString(R.string.settings_option_openai_api),
-            context.getString(R.string.settings_option_whisper_asr_webservice) -> {
-                "$endpoint?encode=true&task=transcribe&language=$languageCode&word_timestamps=false&output=txt"
-            }
-            else -> endpoint
-        }
 
         return Request.Builder()
-            .headers(requestHeaders)
-            .url(url)
+            .url(endpoint)
             .post(requestBody)
             .build()
     }

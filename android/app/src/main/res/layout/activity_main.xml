@@ -56,6 +56,7 @@
             app:layout_constraintTop_toTopOf="parent" />
 
         <Button
+            style="@style/AccentButton"
             android:id="@+id/btn_settings_apply"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -91,6 +92,7 @@
             android:layout_weight="1" />
 
         <Button
+            style="@style/AccentButton"
             android:id="@+id/btn_update_now"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -98,14 +100,47 @@
 
     </LinearLayout>
 
+    <!-- Fehlerpfad: Login erfolgreich, aber Token-Abruf danach gescheitert (Pre-Mortem-Mitigation) -->
+    <LinearLayout
+        android:id="@+id/token_fetch_error_banner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/update_banner">
+
+        <TextView
+            android:id="@+id/label_token_fetch_error"
+            style="@style/RegularText"
+            android:text="@string/error_token_fetch_failed"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/btn_token_fetch_retry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/btn_retry" />
+
+    </LinearLayout>
+
     <ScrollView
+        android:id="@+id/settings_scroll"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
         android:padding="24dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/update_banner">
+        app:layout_constraintTop_toBottomOf="@+id/token_fetch_error_banner">
 
         <LinearLayout
             android:id="@+id/settings_list"
@@ -115,49 +150,15 @@
             android:minHeight="100dp"
             android:orientation="vertical" >
 
-            <!-- Speech to Text Backend -->
             <TextView
-                android:id="@+id/label_speech_to_text_backend"
-                style="@style/SettingsLabel"
-                android:text="@string/settings_speech_to_text_backend" />
-            <TextView
-                android:id="@+id/description_speech_to_text_backend"
-                style="@style/SettingsDescription"
-                android:text="@string/settings_speech_to_text_backend_desc" />
-            <Spinner
-                android:id="@+id/spinner_speech_to_text_backend"
-                style="@style/SettingsSpinner"
-                android:entries="@array/settings_speech_to_text_backend_array" />
+                android:id="@+id/btn_logout"
+                style="@style/RegularText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_logout"
+                android:padding="8dp" />
 
-            <!-- Endpoint -->
-            <TextView
-                android:id="@+id/label_endpoint"
-                style="@style/SettingsLabel"
-                android:text="@string/settings_endpoint" />
-            <TextView
-                android:id="@+id/description_endpoint"
-                style="@style/SettingsDescription"
-                android:text="@string/settings_endpoint_desc" />
-            <EditText
-                android:id="@+id/field_endpoint"
-                style="@style/SettingsField"
-                android:hint="@string/settings_endpoint_hint" />
-
-            <!-- API Key -->
-            <TextView
-                android:id="@+id/label_api_key"
-                style="@style/SettingsLabel"
-                android:text="@string/settings_api_key" />
-            <TextView
-                android:id="@+id/description_api_key"
-                style="@style/SettingsDescription"
-                android:text="@string/settings_api_key_desc" />
-            <EditText
-                android:id="@+id/field_api_key"
-                style="@style/SettingsField"
-                android:hint="@string/settings_api_key_hint" />
-
-            <!-- Model -->
+            <!-- Model (read-only - App spricht nur noch gegen das eigene Backend) -->
             <TextView
                 android:id="@+id/label_model"
                 style="@style/SettingsLabel"
@@ -169,21 +170,8 @@
             <EditText
                 android:id="@+id/field_model"
                 style="@style/SettingsField"
-                android:hint="@string/settings_model_hint" />
-
-            <!-- Language Code -->
-            <TextView
-                android:id="@+id/label_language_code"
-                style="@style/SettingsLabel"
-                android:text="@string/settings_language_code" />
-            <TextView
-                android:id="@+id/description_language_code"
-                style="@style/SettingsDescription"
-                android:text="@string/settings_language_code_desc" />
-            <EditText
-                android:id="@+id/field_language_code"
-                style="@style/SettingsField"
-                android:hint="@string/settings_language_code_hint" />
+                android:enabled="false"
+                android:focusable="false" />
 
             <!-- Auto Recording Start -->
             <TextView
@@ -244,5 +232,71 @@
         </LinearLayout>
     </ScrollView>
 
+    <ScrollView
+        android:id="@+id/login_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="32dp">
+
+            <TextView
+                style="@style/RegularText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/login_title"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="24dp" />
+
+            <TextView
+                android:id="@+id/label_login_error"
+                style="@style/SettingsDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:layout_marginBottom="8dp" />
+
+            <EditText
+                android:id="@+id/field_login_username"
+                style="@style/SettingsField"
+                android:layout_width="match_parent"
+                android:hint="@string/login_username_hint"
+                android:inputType="text" />
+
+            <EditText
+                android:id="@+id/field_login_password"
+                style="@style/SettingsField"
+                android:layout_width="match_parent"
+                android:hint="@string/login_password_hint"
+                android:inputType="textPassword" />
+
+            <CheckBox
+                android:id="@+id/checkbox_stay_logged_in"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/login_stay_logged_in"
+                android:checked="true"
+                android:layout_marginTop="8dp" />
+
+            <Button
+                style="@style/AccentButton"
+                android:id="@+id/btn_login"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/login_btn"
+                android:layout_marginTop="16dp" />
+
+        </LinearLayout>
+    </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

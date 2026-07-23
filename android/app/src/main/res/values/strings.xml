@@ -25,44 +25,35 @@
     <string name="update_available">New version %1$s available.</string>
     <string name="update_downloading">Downloading update…</string>
     <string name="update_download_failed">Update download failed: %1$s</string>
+    <string name="btn_retry">Erneut versuchen</string>
+    <string name="btn_logout">Abmelden</string>
+    <string name="update_available_hint">Update verfügbar</string>
+
+    <!-- Login -->
+    <string name="login_title">Bei morgenschiss.de anmelden</string>
+    <string name="login_username_hint">Benutzername</string>
+    <string name="login_password_hint">Passwort</string>
+    <string name="login_stay_logged_in">Eingeloggt bleiben</string>
+    <string name="login_btn">Anmelden</string>
+    <string name="error_login_invalid">Benutzername oder Passwort falsch.</string>
+    <string name="error_login_locked">Konto vorübergehend gesperrt. Später erneut versuchen.</string>
+    <string name="error_login_pending">Konto wartet noch auf Freischaltung.</string>
+    <string name="error_login_rate_limited">Zu viele Login-Versuche. Bitte später erneut versuchen.</string>
+    <string name="error_login_network">Anmeldung fehlgeschlagen: Verbindung zu morgenschiss.de nicht möglich.</string>
+    <string name="error_login_rejected">Kontoantrag abgelehnt.</string>
+    <string name="error_token_fetch_failed">Einstellungen konnten nicht geladen werden.</string>
 
     <!-- Warning and Error Messages -->
     <string name="error_endpoint_unset">Error: Endpoint is not set in settings.</string>
-    <string name="error_apikey_unset">Error: OpenAI API Key is not set in settings.</string>
 
     <!-- Settings -->
     <string name="whisper_to_input_settings_title">Whisper To Input Settings</string>
     <string name="settings_btn_apply">Apply</string>
-    <string name="settings_speech_to_text_backend">Speech to Text Backend</string>
-    <string name="settings_speech_to_text_backend_desc">Use the official OpenAI API, Whisper ASR Webservice, or NVIDIA NIM backend.</string>
+    <!-- Nur noch intern referenziert (WhisperInputService.updateAudioFormat) - kein UI-Element mehr -->
     <string name="settings_option_openai_api">OpenAI API</string>
-    <string name="settings_option_openai_api_default_endpoint">https://api.openai.com/v1/audio/transcriptions</string>
-    <string name="settings_option_openai_api_default_model">whisper-1</string>
-    <string name="settings_option_openai_api_default_language">auto</string>
-    <string name="settings_option_whisper_asr_webservice">Whisper ASR Webservice</string>
-    <string name="settings_option_whisper_asr_webservice_default_endpoint">http://localhost:9000/asr</string>
-    <string name="settings_option_whisper_asr_webservice_default_model"></string> <!-- Empty default model -->
     <string name="settings_option_nvidia_nim">NVIDIA NIM</string>
-    <string name="settings_option_nvidia_nim_default_endpoint">http://localhost:9000/v1/audio/transcriptions</string>
-    <string name="settings_option_nvidia_nim_default_model"></string> <!-- Empty default model -->
-    <string name="settings_option_nvidia_nim_default_language">multi</string> <!-- Empty default language -->
-    <string-array name="settings_speech_to_text_backend_array">
-        <item>@string/settings_option_openai_api</item>
-        <item>@string/settings_option_whisper_asr_webservice</item>
-        <item>@string/settings_option_nvidia_nim</item>
-    </string-array>
-    <string name="settings_endpoint">Endpoint</string>
-    <string name="settings_endpoint_desc">The host and port for the OpenAI API, Whisper ASR Webservice, or NVIDIA NIM endpoint.</string>
-    <string name="settings_endpoint_hint"><![CDATA[e.g., http://<host>:<port>/asr]]></string>
-    <string name="settings_language_code">Language Code</string>
-    <string name="settings_language_code_desc">The language code to be included in the request payload (e.g., en, zh).</string>
-    <string name="settings_language_code_hint">Enter Language Code (e.g., en, zh)</string>
-    <string name="settings_api_key">API Key</string>
-    <string name="settings_api_key_desc">The official OpenAI API Key to be used in requests.</string>
-    <string name="settings_api_key_hint">Enter OpenAI API Key…</string>
-    <string name="settings_model">Model</string>
-    <string name="settings_model_desc">The model to use for transcription (e.g., whisper-1).</string>
-    <string name="settings_model_hint">Enter model name (e.g., whisper-1)</string>
+    <string name="settings_model">Modell</string>
+    <string name="settings_model_desc">Aktuell vom Server genutztes Cleanup-Modell (nicht änderbar).</string>
     <string name="settings_option_yes">Yes</string>
     <string name="settings_option_no">No</string>
     <string name="settings_auto_recording_start">Auto Recording Start</string>
@@ -83,15 +74,15 @@
         <item>@string/settings_option_yes</item>
         <item>@string/settings_option_no</item>
     </string-array>
-    <string name="settings_postprocessing">Postprocessing</string>
-    <string name="settings_postprocessing_desc">Choose how to handle text postprocessing.</string>
-    <string name="settings_option_to_traditional">Convert to Traditional Chinese</string>
-    <string name="settings_option_to_simplified">Convert to Simplified Chinese</string>
-    <string name="settings_option_no_conversion">No Conversion</string>
+    <string name="settings_postprocessing">Cleanup-Modus</string>
+    <string name="settings_postprocessing_desc">Wie soll dein diktierter Text durch KI bereinigt werden?</string>
+    <string name="settings_option_cleanup_off">Aus</string>
+    <string name="settings_option_cleanup_light">Leicht (Rechtschreibung, Grammatik, Füllwörter)</string>
+    <string name="settings_option_cleanup_heavy">Stark (Inhaltlich neu ordnen, Nachträge einsortieren)</string>
     <string-array name="settings_postprocessing_array">
-        <item>@string/settings_option_to_traditional</item>
-        <item>@string/settings_option_to_simplified</item>
-        <item>@string/settings_option_no_conversion</item>
+        <item>@string/settings_option_cleanup_off</item>
+        <item>@string/settings_option_cleanup_light</item>
+        <item>@string/settings_option_cleanup_heavy</item>
     </string-array>
     <string name="desc_space_bar">Space Bar</string>
 
