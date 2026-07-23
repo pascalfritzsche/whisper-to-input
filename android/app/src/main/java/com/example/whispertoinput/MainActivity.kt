@@ -503,9 +503,10 @@ class MainActivity : AppCompatActivity() {
                     for (settingItem in settingItems) {
                         settingItem.apply()
                     }
-                    btnApply.isEnabled = false
+                    Toast.makeText(this@MainActivity, R.string.successfully_set, Toast.LENGTH_SHORT).show()
+                    // Return to whatever app opened this settings screen.
+                    finish()
                 }
-                Toast.makeText(this@MainActivity, R.string.successfully_set, Toast.LENGTH_SHORT).show()
             }
             settingItems.map { settingItem -> settingItem.setup() }.joinAll()
             setupSettingItemsDone = true
