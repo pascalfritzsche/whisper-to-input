@@ -271,11 +271,8 @@
         android:backgroundTint="#00000000"
         android:contentDescription="@string/btn_polish_hint"
         android:scaleType="fitCenter"
-        android:scaleX="0.5"
-        android:scaleY="0.5"
-        android:layout_marginEnd="16dp"
         android:src="@drawable/ic_polish"
-        app:layout_constraintTop_toTopOf="@+id/btn_mic_frame"
-        app:layout_constraintBottom_toBottomOf="@+id/btn_mic_frame"
-        app:layout_constraintEnd_toStartOf="@+id/btn_mic_frame" />
+        app:layout_constraintStart_toStartOf="@+id/btn_cancel"
+        app:layout_constraintTop_toTopOf="@+id/btn_space_bar"
+        app:layout_constraintBottom_toBottomOf="@+id/btn_space_bar" />
 </androidx.constraintlayout.widget.ConstraintLayout>

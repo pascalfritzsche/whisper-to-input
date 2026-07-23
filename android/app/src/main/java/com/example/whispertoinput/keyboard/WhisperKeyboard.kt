@@ -329,11 +329,7 @@ class WhisperKeyboard {
                 buttonMic!!.setImageResource(R.drawable.mic_idle)
                 waitingIcon!!.visibility = View.INVISIBLE
                 buttonCancel!!.visibility = View.INVISIBLE
-                val showRetry = shouldShowRetry()
-                buttonRetry!!.visibility = if (showRetry) View.VISIBLE else View.INVISIBLE
-                // Teilt sich die Position mit Retry - Retry hat Vorrang, da es sich auf
-                // die gerade erst abgebrochene Aufnahme bezieht.
-                buttonPolish!!.visibility = if (showRetry) View.INVISIBLE else View.VISIBLE
+                buttonRetry!!.visibility = if (shouldShowRetry()) View.VISIBLE else View.INVISIBLE
                 micRippleContainer!!.visibility = View.GONE
                 keyboardView!!.keepScreenOn = false
             }
@@ -344,7 +340,6 @@ class WhisperKeyboard {
                 waitingIcon!!.visibility = View.INVISIBLE
                 buttonCancel!!.visibility = View.VISIBLE
                 buttonRetry!!.visibility = View.INVISIBLE
-                buttonPolish!!.visibility = View.INVISIBLE
                 micRippleContainer!!.visibility = View.VISIBLE
                 keyboardView!!.keepScreenOn = true
             }
@@ -355,7 +350,6 @@ class WhisperKeyboard {
                 waitingIcon!!.visibility = View.VISIBLE
                 buttonCancel!!.visibility = View.VISIBLE
                 buttonRetry!!.visibility = View.INVISIBLE
-                buttonPolish!!.visibility = View.INVISIBLE
                 micRippleContainer!!.visibility = View.GONE
                 keyboardView!!.keepScreenOn = true
             }
@@ -365,7 +359,6 @@ class WhisperKeyboard {
                 waitingIcon!!.visibility = View.VISIBLE
                 buttonCancel!!.visibility = View.VISIBLE
                 buttonRetry!!.visibility = View.INVISIBLE
-                buttonPolish!!.visibility = View.INVISIBLE
                 micRippleContainer!!.visibility = View.GONE
                 keyboardView!!.keepScreenOn = true
             }
