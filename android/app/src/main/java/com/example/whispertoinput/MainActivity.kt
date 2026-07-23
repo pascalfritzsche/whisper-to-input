@@ -30,6 +30,7 @@ import android.net.Uri
 import android.provider.*
 import android.util.Log
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.AdapterView
 import android.widget.Button
 import android.widget.CheckBox
@@ -59,9 +60,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
-// 200 and 201 are an arbitrary values, as long as they do not conflict with each other
-private const val MICROPHONE_PERMISSION_REQUEST_CODE = 200
-private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 201
+private const val PERMISSIONS_REQUEST_CODE = 200
 // Rein informativ im Settings-Screen - App hat keine Modellwahl mehr, muss manuell
 // nachgezogen werden falls sich GENERATE_MODEL in api/MulmAI/asr.mjs aendert.
 private const val CURRENT_SERVER_MODEL = "gemma4:e4b-mlx"
@@ -115,6 +114,35 @@ class MainActivity : AppCompatActivity() {
         setupSettingItems()
         setupLogoutButton()
         checkForAppUpdate()
+        checkKeyboardEnabled()
+    }
+
+    private fun isImeEnabled(): Boolean {
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        return imm.enabledInputMethodList.any { it.packageName == packageName }
+    }
+
+    // Zeigt einen direkten Link in die System-Tastatur-Einstellungen, solange die IME dort
+    // noch nicht aktiviert ist - erspart dem Nutzer, den Weg selbst zu suchen.
+    private fun checkKeyboardEnabled() {
+        val banner = findViewById<View>(R.id.enable_keyboard_banner)
+        if (isImeEnabled()) {
+            banner.visibility = View.GONE
+            return
+        }
+        banner.visibility = View.VISIBLE
+        findViewById<Button>(R.id.btn_enable_keyboard).setOnClickListener {
+            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Nutzer kommt evtl. gerade aus den System-Einstellungen zurueck, nachdem die
+        // Tastatur dort aktiviert wurde - Banner-Zustand entsprechend nachziehen.
+        if (findViewById<View>(R.id.settings_scroll).visibility == View.VISIBLE) {
+            checkKeyboardEnabled()
+        }
     }
 
     private suspend fun loadSettingsForSession(session: String) {
@@ -236,28 +264,20 @@ class MainActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    // Checks whether permissions are granted. If not, automatically make a request.
+    // Checks whether permissions are granted. If not, requests all missing ones in one go.
     private fun checkPermissions() {
-        val permission_and_code = arrayOf(
-            Pair(Manifest.permission.RECORD_AUDIO, MICROPHONE_PERMISSION_REQUEST_CODE),
-            Pair(Manifest.permission.POST_NOTIFICATIONS, NOTIFICATION_PERMISSION_REQUEST_CODE),
-        )
-        for ((permission, code) in permission_and_code) {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    permission
-                ) == PackageManager.PERMISSION_DENIED
-            ) {
-                // Shows a popup for permission request.
-                // If the permission has been previously (hard-)denied, the popup will not show.
-                // onRequestPermissionsResult will be called in either case.
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(permission),
-                    code
-                )
-            }
+        val required = listOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS)
+        val missing = required.filter {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_DENIED
         }
+        if (missing.isEmpty()) return
+
+        // Ein einzelner Aufruf mit allen fehlenden Berechtigungen - zwei separate,
+        // ueberlappende requestPermissions()-Aufrufe liessen Android den ersten Dialog
+        // teilweise stillschweigend abbrechen, sodass nur eine Berechtigung tatsaechlich
+        // erfragt wurde und die andere erst viel spaeter (z.B. beim Aktivieren der Tastatur)
+        // nachgeholt wurde.
+        ActivityCompat.requestPermissions(this, missing.toTypedArray(), PERMISSIONS_REQUEST_CODE)
     }
 
     // Handles the results of permission requests.
@@ -267,22 +287,16 @@ class MainActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        var msg: String
+        if (requestCode != PERMISSIONS_REQUEST_CODE) return
 
-        // Only handles requests marked with the unique code.
-        if (requestCode == MICROPHONE_PERMISSION_REQUEST_CODE) {
-            msg = getString(R.string.mic_permission_required)
-        } else if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
-            msg = getString(R.string.notification_permission_required)
-        } else {
-            return
-        }
-
-        // All permissions should be granted.
-        for (result in grantResults) {
-            if (result != PackageManager.PERMISSION_GRANTED) {
+        permissions.forEachIndexed { index, permission ->
+            if (grantResults.getOrNull(index) != PackageManager.PERMISSION_GRANTED) {
+                val msg = when (permission) {
+                    Manifest.permission.RECORD_AUDIO -> getString(R.string.mic_permission_required)
+                    Manifest.permission.POST_NOTIFICATIONS -> getString(R.string.notification_permission_required)
+                    else -> return@forEachIndexed
+                }
                 Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-                return
             }
         }
     }

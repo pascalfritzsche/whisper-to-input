@@ -28,6 +28,8 @@
     <string name="btn_retry">Erneut versuchen</string>
     <string name="btn_logout">Abmelden</string>
     <string name="update_available_hint">Update verfügbar</string>
+    <string name="enable_keyboard_hint">Tastatur ist noch nicht aktiviert.</string>
+    <string name="btn_enable_keyboard">Aktivieren</string>
 
     <!-- Login -->
     <string name="login_title">Bei morgenschiss.de anmelden</string>
