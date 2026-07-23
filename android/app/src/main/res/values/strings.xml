@@ -21,8 +21,10 @@
     <string name="btn_polish_hint">Clean Up Text With AI</string>
     <string name="generate_logcat">Generate Recent Logcat</string>
     <string name="polishing">Polishing…</string>
-    <string name="settings_btn_update_now">Update</string>
-    <string name="update_available">New version %1$s available.</string>
+    <string name="settings_btn_update_now">Installieren</string>
+    <string name="update_available_title">Update verfügbar</string>
+    <string name="update_available">Version %1$s ist verfügbar. Jetzt installieren?</string>
+    <string name="update_later">Später</string>
     <string name="update_downloading">Downloading update…</string>
     <string name="update_download_failed">Update download failed: %1$s</string>
     <string name="btn_retry">Erneut versuchen</string>

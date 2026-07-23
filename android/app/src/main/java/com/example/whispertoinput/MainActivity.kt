@@ -19,6 +19,7 @@
 
 package com.example.whispertoinput
 
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import androidx.core.app.ActivityCompat
@@ -100,7 +101,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showLoginScreen() {
         findViewById<View>(R.id.settings_top_bar).visibility = View.GONE
-        findViewById<View>(R.id.update_banner).visibility = View.GONE
+        findViewById<View>(R.id.enable_keyboard_banner).visibility = View.GONE
         findViewById<View>(R.id.token_fetch_error_banner).visibility = View.GONE
         findViewById<View>(R.id.settings_scroll).visibility = View.GONE
         findViewById<View>(R.id.login_container).visibility = View.VISIBLE
@@ -224,28 +225,25 @@ class MainActivity : AppCompatActivity() {
         CoroutineScope(Dispatchers.Main).launch {
             val update = UpdateChecker.checkForUpdate(this@MainActivity) ?: return@launch
 
-            val banner: View = findViewById(R.id.update_banner)
-            val label: android.widget.TextView = findViewById(R.id.label_update_available)
-            val btnUpdate: Button = findViewById(R.id.btn_update_now)
-
-            label.text = getString(R.string.update_available, update.versionName)
-            banner.visibility = View.VISIBLE
-            btnUpdate.setOnClickListener {
-                btnUpdate.isEnabled = false
-                Toast.makeText(this@MainActivity, R.string.update_downloading, Toast.LENGTH_SHORT).show()
-                CoroutineScope(Dispatchers.Main).launch {
-                    try {
-                        UpdateChecker.downloadAndInstall(this@MainActivity, update.downloadUrl)
-                    } catch (e: Exception) {
-                        Toast.makeText(
-                            this@MainActivity,
-                            getString(R.string.update_download_failed, e.message),
-                            Toast.LENGTH_LONG
-                        ).show()
-                        btnUpdate.isEnabled = true
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle(R.string.update_available_title)
+                .setMessage(getString(R.string.update_available, update.versionName))
+                .setPositiveButton(R.string.settings_btn_update_now) { _, _ ->
+                    Toast.makeText(this@MainActivity, R.string.update_downloading, Toast.LENGTH_SHORT).show()
+                    CoroutineScope(Dispatchers.Main).launch {
+                        try {
+                            UpdateChecker.downloadAndInstall(this@MainActivity, update.downloadUrl)
+                        } catch (e: Exception) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                getString(R.string.update_download_failed, e.message),
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
                 }
-            }
+                .setNegativeButton(R.string.update_later, null)
+                .show()
         }
     }
 
