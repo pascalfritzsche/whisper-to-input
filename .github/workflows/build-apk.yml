@@ -22,3 +22,19 @@ jobs:
         with:
           name: whisper-to-input-debug
           path: android/app/build/outputs/apk/debug/*.apk
+      - name: Deploy APK to server
+        continue-on-error: true
+        env:
+          APK_DEPLOY_SECRET: ${{ secrets.APK_DEPLOY_SECRET }}
+        run: |
+          if [ -z "$APK_DEPLOY_SECRET" ]; then
+            echo "APK_DEPLOY_SECRET not set - skipping auto-deploy."
+            exit 0
+          fi
+          VERSION_CODE=$(grep -oP 'versionCode\s*=\s*\K[0-9]+' android/app/build.gradle.kts)
+          VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' android/app/build.gradle.kts)
+          APK_PATH=$(find android/app/build/outputs/apk/debug -name '*.apk' | head -1)
+          curl -sf -X POST \
+            "https://morgenschiss.de/api/dictation/apk-upload?versionCode=${VERSION_CODE}&versionName=${VERSION_NAME}" \
+            -H "x-apk-deploy-secret: ${APK_DEPLOY_SECRET}" \
+            --data-binary @"$APK_PATH"
