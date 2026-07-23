@@ -29,7 +29,6 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.content.ContextCompat
 import androidx.core.math.MathUtils
 import com.example.whispertoinput.R
 import kotlin.math.log10
@@ -328,10 +327,13 @@ class WhisperKeyboard {
             KeyboardStatus.Idle -> {
                 labelStatus!!.setText(R.string.whisper_to_input)
                 buttonMic!!.setImageResource(R.drawable.mic_idle)
-                buttonMic!!.clearColorFilter()
                 waitingIcon!!.visibility = View.INVISIBLE
                 buttonCancel!!.visibility = View.INVISIBLE
-                buttonRetry!!.visibility = if (shouldShowRetry()) View.VISIBLE else View.INVISIBLE
+                val showRetry = shouldShowRetry()
+                buttonRetry!!.visibility = if (showRetry) View.VISIBLE else View.INVISIBLE
+                // Teilt sich die Position mit Retry - Retry hat Vorrang, da es sich auf
+                // die gerade erst abgebrochene Aufnahme bezieht.
+                buttonPolish!!.visibility = if (showRetry) View.INVISIBLE else View.VISIBLE
                 micRippleContainer!!.visibility = View.GONE
                 keyboardView!!.keepScreenOn = false
             }
@@ -339,10 +341,10 @@ class WhisperKeyboard {
             KeyboardStatus.Recording -> {
                 labelStatus!!.setText(R.string.recording)
                 buttonMic!!.setImageResource(R.drawable.mic_pressed)
-                buttonMic!!.setColorFilter(ContextCompat.getColor(buttonMic!!.context, R.color.theme_accent_primary))
                 waitingIcon!!.visibility = View.INVISIBLE
                 buttonCancel!!.visibility = View.VISIBLE
                 buttonRetry!!.visibility = View.INVISIBLE
+                buttonPolish!!.visibility = View.INVISIBLE
                 micRippleContainer!!.visibility = View.VISIBLE
                 keyboardView!!.keepScreenOn = true
             }
@@ -350,10 +352,10 @@ class WhisperKeyboard {
             KeyboardStatus.Transcribing -> {
                 labelStatus!!.setText(R.string.transcribing)
                 buttonMic!!.setImageResource(R.drawable.mic_transcribing)
-                buttonMic!!.setColorFilter(ContextCompat.getColor(buttonMic!!.context, R.color.theme_accent_primary))
                 waitingIcon!!.visibility = View.VISIBLE
                 buttonCancel!!.visibility = View.VISIBLE
                 buttonRetry!!.visibility = View.INVISIBLE
+                buttonPolish!!.visibility = View.INVISIBLE
                 micRippleContainer!!.visibility = View.GONE
                 keyboardView!!.keepScreenOn = true
             }
@@ -363,6 +365,7 @@ class WhisperKeyboard {
                 waitingIcon!!.visibility = View.VISIBLE
                 buttonCancel!!.visibility = View.VISIBLE
                 buttonRetry!!.visibility = View.INVISIBLE
+                buttonPolish!!.visibility = View.INVISIBLE
                 micRippleContainer!!.visibility = View.GONE
                 keyboardView!!.keepScreenOn = true
             }

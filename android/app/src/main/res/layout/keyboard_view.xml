@@ -266,13 +266,16 @@
     <ImageButton
         style="@style/RegularImage"
         android:id="@+id/btn_polish"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
         android:backgroundTint="#00000000"
         android:contentDescription="@string/btn_polish_hint"
         android:scaleType="fitCenter"
-        android:padding="8dp"
+        android:scaleX="0.5"
+        android:scaleY="0.5"
+        android:layout_marginEnd="16dp"
         android:src="@drawable/ic_polish"
-        app:layout_constraintStart_toStartOf="@id/btn_previous_ime"
-        app:layout_constraintTop_toBottomOf="@id/btn_previous_ime" />
+        app:layout_constraintTop_toTopOf="@+id/btn_mic_frame"
+        app:layout_constraintBottom_toBottomOf="@+id/btn_mic_frame"
+        app:layout_constraintEnd_toStartOf="@+id/btn_mic_frame" />
 </androidx.constraintlayout.widget.ConstraintLayout>
